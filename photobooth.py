@@ -1,177 +1,126 @@
-#! /usr/bin/python
-
-import picamera
+import sys
+import math
 import pygame
-import RPIO
+import pygame.camera
+import time
 import atexit
 import io
-import os
-import time
-import multiprocessing
-import threading
-import sys
-import re
-import errno
 
-IDLE_MODE, PHOTO_MODE, PRINT_MODE = range(3)
+SCREEN_RESOLUTION = 640, 480
+CAM_RESOLUTION = 640, 480
+# TODO how to use small size preview ?..
+# CAM_RESOLUTION = 1280, 720
 
-# buttons GPIOs
-BUTTON_PHOTO = 4
-BUTTON_PRINT = 5
-
-# file directory where pictures will be stored
-PHOTOS_DIR = "/media/XXX/photobooth_images/"
+# font file used for text display
+FONT_FILE = "dizzyedge.otf"
 
 # time in secs before taking the picture
 PHOTO_DELAY = 3
 
 # duration in secs to display the new picture
-PHOTO_DISPLAY_TIME = 5
+PHOTO_DISPLAY_DURATION = 7
 
-# duration in secs to wait for print confirmation
-PHOTO_PRINT_TIME = 5
+# duration in secs of the "printing" confirmation message
+PRINT_DELAY = 3
 
-# TODO whether or not to allow printing
-# ENABLE_PRINT = 1
+# directory where images are stored
+PHOTOS_DIR = "./photos/"
 
-xSize, ySize = 640, 400
-# global tmp array for low quality streaming
-rgb = bytearray(xSize * ySize * 4)
-# [ img resolution, size of output, field of view ]
-sizeData =  [(1440, 1080), (xSize, ySize), (0.0, 0.0, 1.0, 1.0)]
-OVERLAY_DIR = "images/"
+# init pygame
+pygame.init()
+pygame.mouse.set_visible(False)
+SCREEN = pygame.display.set_mode(SCREEN_RESOLUTION)
+FONT = pygame.font.Font("./fonts/" + FONT_FILE, 46)
 
-# show camera preview on screen
-def showPreview(camera, screen):
-    stream = io.BytesIO() # Capture into in-memory stream
-    camera.capture(stream, use_video_port=True, format='rgba')
-    stream.seek(0)
-    stream.readinto(rgb)
-    stream.close()
-    img = pygame.image.frombuffer(rgb[0: (xSize * ySize * 4)], sizeData[1], 'RGBA')
-    screen.blit(img, ((xSize - img.get_width() ) / 2, (ySize - img.get_height()) / 2))
-    pygame.display.update() # necessary?
+# init camera
+pygame.camera.init()
+camlist = pygame.camera.list_cameras()
+if not camlist:
+    raise ValueError("Sorry, no cameras detected.")
+CAM_FILEPATH = camlist[0]
+CAM = pygame.camera.Camera(CAM_FILEPATH, CAM_RESOLUTION)
+CAM.start()
+# os.system('v4l2-ctl -d 0 -c focus_auto=0')          #set auto focus to 0 to not interfere with focus
+# os.system('v4l2-ctl -d 0 -c focus_absolute=250')    #set focus of camera to max
 
-# Save a jpeg to a file from picamera
-def capturePhoto(camera):
-    oldRes = camera.resolution
-    filename = PHOTOS_DIR + '/image.jpg' # TODO add time info
-    camera.resolution = (2592, 1944) # set to max resolution
-    camera.capture(filename, use_video_port=False, format='jpeg', thumbnail=None)
-    camera.resolution = oldRes
-    return filename
+def centerPosition(itemSize, containerSize):
+    positionX = (containerSize[0] - itemSize[0]) / 2
+    positionY = (containerSize[1] - itemSize[1]) / 2
+    return positionX, positionY
 
-# Show an image on screen
-def overlayPicture(screen, filename):
-    img = pygame.image.load(OVERLAY_DIR + filename, 'png')
-    screen.blit(img, ((xSize - img.get_width() ) / 2, (ySize - img.get_height()) / 2))
-    pygame.display.update() # necessary?
+def addText(text):
+    label = FONT.render(text, 1, (255,255,255))
+    size = FONT.size(text)
+    labelPosition = centerPosition(size, SCREEN_RESOLUTION)
+    SCREEN.blit(label, labelPosition)
 
-# infinite loop function
-def photoboothLoop():
-    state = IDLE_MODE
+def displayLastPhoto():
+    SCREEN.blit(lastPhoto, (0, 0))
+    addText("Print this photo ?")
+    pygame.display.update()
 
-    # init camera
-    camera = picamera.PiCamera()
-    atexit.register(camera.close)
-    camera.vflip = False
-    camera.hflip = False
-    camera.brightness = 60
-    camera.resolution = sizeData[1]
-    camera.crop = (0.0, 0.0, 1.0, 1.0) # can focus in for narrower field of view
+# variables that will be updated during the loop
+currentMode = 'IDLE'
+photoButtonTime = 0
+lastPhoto = ''
 
-    # build a screen
-    os.environ["SDL_FBDEV"] = "/dev/fb0"
-    pygame.init()
-    pygame.mouse.set_visible(False)
-    screen = pygame.display.set_mode((xSize,ySize))
+while 1:
+    SCREEN.fill((0, 0, 0))
 
-    # variables used across the loop
-    photoButtonTime = 0
-    printButtonTime = 0
-    lastPhoto = ''
-    lastPhotoTime = 0
+    # idle mode : waiting for user action
+    if currentMode == 'IDLE':
+        IMAGE = CAM.get_image()
+        SCREEN.blit(IMAGE, (0, 0))
+        pygame.display.update()
+        # listen to keyboard events
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    sys.exit()
+                elif event.key == pygame.K_SPACE:
+                    photoButtonTime = time.clock()
+                    currentMode = 'PHOTO_COUNTDOWN'
+                elif event.key == pygame.K_RETURN:
+                    # TODO check if lastPhoto exists
+                    displayLastPhoto()
+                    photoDisplayTime = time.clock()
+                    currentMode = 'PHOTO_DISPLAY'
 
-    # start an infinite loop
-    while True:
-
-        # idle mode : waiting for someone to press a button
-        if state == IDLE_MODE:
-
-            # show the camera preview
-            showPreview(camera, screen)
-
-            # pressed "photo" button
-            if not RPIO.input(BUTTON_PHOTO):
-                state = PHOTO_MODE
-                photoButtonTime = time.clock()
-
-            # pressed "print" button
-            if not RPIO.input(BUTTON_PRINT):
-                state = PRINT_MODE
-                printButtonTime = time.clock()
-                # show the last photo taken
-                if not lastPhoto == '':
-                    img = pygame.image.load(PHOTOS_DIR + lastPhoto, 'jpeg')
-                    screen.blit(img, ((xSize - img.get_width() ) / 2, (ySize - img.get_height()) / 2))
-                    pygame.display.update() # necessary?
-                    # TODO display the print confirmation overlay
-
-        # photo mode : we are in the process of taking a picture
-        elif state == PHOTO_MODE:
-            timeFromButton = time.clock() - photoButtonTime
-            showPreview(camera, screen)
-            if timeFromButton < PHOTO_DELAY:
-                # show counter
-                overlayPicture(screen, timeFromButton + '.png')
-                sleep(1)
-            else:
-                # take photo
-                lastPhoto = capturePhoto(camera)
-                lastPhotoTime = time.clock()
-                # display the photo
-                state = DISPLAY_MODE
-                img = pygame.image.load(PHOTOS_DIR + lastPhoto, 'jpeg')
-                screen.blit(img, ((xSize - img.get_width() ) / 2, (ySize - img.get_height()) / 2))
-                pygame.display.update() # necessary?
-
-        # dislay mode : photo can be displayed for some time
-        elif state == DISPLAY_MODE:
-            timeFromPhoto = time.clock() - lastPhotoTime
-            if timeFromPhoto > PHOTO_DISPLAY_TIME:
-                showPreview(camera, screen)
-                state = IDLE_MODE
-
-        # print mode : photo is displayed for print confirmation
-        elif state == PRINT_MODE:
-            timeFromButton = time.clock() - printButtonTime
-            if timeFromButton > PHOTO_PRINT_TIME:
-                showPreview(camera, screen)
-                state = IDLE_MODE
-
+    # countdown until photo is actually taken
+    elif currentMode == 'PHOTO_COUNTDOWN':
+        timeFromButton = int(math.ceil(time.clock() - photoButtonTime))
+        if timeFromButton <= PHOTO_DELAY:
+            # show counter
+            IMAGE = CAM.get_image()
+            SCREEN.blit(IMAGE, (0, 0))
+            addText(str(timeFromButton))
+            pygame.display.update()
         else:
-            print "UNKNOWN STATE! back to IDLE"
-            state = IDLE_MODE
+            # take photo
+            lastPhoto = CAM.get_image()
+            # save the image as a file
+            filename = "PHOTOBOOTH-" + time.strftime("%Y%m%d-%H%M%S") + ".jpg"
+            pygame.image.save(lastPhoto, PHOTOS_DIR + filename)
+            # switch mode to wait for print
+            displayLastPhoto()
+            photoDisplayTime = time.clock()
+            currentMode = 'PHOTO_DISPLAY'
 
+    # show the last photo for sometime
+    elif currentMode == 'PHOTO_DISPLAY':
+        timeFromButton = int(math.ceil(time.clock() - photoDisplayTime))
+        if timeFromButton > PHOTO_DISPLAY_DURATION:
+            currentMode = 'IDLE'
+        # listen to keyboard events
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    currentMode = 'PRINT_CONFIRM'
 
-if __name__ == "__main__":
-
-    # check that script is run as root user
-    if os.getuid() != 0:
-        print 'This must be run as root'
-        sys.exit(1)
-
-    # create pics directory if it does not exist
-    try:
-        os.makedirs(PHOTOS_DIR)
-    except OSError as exc: # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(PHOTOS_DIR):
-            pass
-        else: raise
-
-    # bind the GPIOs
-    RPIO.setup(BUTTON_PHOTO, RPIO.IN, pull_up_down=RPIO.PUD_UP)
-    RPIO.setup(BUTTON_PRINT, RPIO.IN, pull_up_down=RPIO.PUD_UP)
-
-    # start the infinite loop (kill process to stop the photobooth)
-    photoboothLoop()
+    # show print confirmation message
+    elif currentMode == 'PRINT_CONFIRM':
+        SCREEN.blit(lastPhoto, (0, 0))
+        addText("Printing ! Please wait...")
+        pygame.display.update()
+        time.sleep(PRINT_DELAY)
+        currentMode = 'IDLE'
