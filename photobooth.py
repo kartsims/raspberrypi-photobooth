@@ -1,126 +1,146 @@
 import sys
 import math
 import pygame
-import pygame.camera
 import time
 import atexit
 import io
+import picamera
+from config import *
+import yuv2rgb
 
-SCREEN_RESOLUTION = 640, 480
-CAM_RESOLUTION = 640, 480
-# TODO how to use small size preview ?..
-# CAM_RESOLUTION = 1280, 720
+# TODO : remove this (debug only)
+from pprint import pprint
 
-# font file used for text display
-FONT_FILE = "dizzyedge.otf"
+# Buffers for viewfinder data
+# nbBytes = SCREEN_RESOLUTION[0] * SCREEN_RESOLUTION[1] * 3
+rgb = bytearray(SCREEN_RESOLUTION[0] * SCREEN_RESOLUTION[1] * 3)
+# yuv = bytearray(SCREEN_RESOLUTION[0] * SCREEN_RESOLUTION[1] * 3 / 2)
+yuv = bytearray(115200) # 320 * 240
 
-# time in secs before taking the picture
-PHOTO_DELAY = 3
-
-# duration in secs to display the new picture
-PHOTO_DISPLAY_DURATION = 7
-
-# duration in secs of the "printing" confirmation message
-PRINT_DELAY = 3
-
-# directory where images are stored
-PHOTOS_DIR = "./photos/"
-
-# init pygame
+# init pygame and screen
 pygame.init()
-pygame.mouse.set_visible(False)
-SCREEN = pygame.display.set_mode(SCREEN_RESOLUTION)
-FONT = pygame.font.Font("./fonts/" + FONT_FILE, 46)
+# pygame.mouse.set_visible(False)
+# screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
+screen = pygame.display.set_mode(SCREEN_RESOLUTION)
+
+# init font file
+font = pygame.font.Font("./fonts/" + FONT_FILE, 46)
 
 # init camera
-pygame.camera.init()
-camlist = pygame.camera.list_cameras()
-if not camlist:
-    raise ValueError("Sorry, no cameras detected.")
-CAM_FILEPATH = camlist[0]
-CAM = pygame.camera.Camera(CAM_FILEPATH, CAM_RESOLUTION)
-CAM.start()
-# os.system('v4l2-ctl -d 0 -c focus_auto=0')          #set auto focus to 0 to not interfere with focus
-# os.system('v4l2-ctl -d 0 -c focus_absolute=250')    #set focus of camera to max
+camera = picamera.PiCamera()
+atexit.register(camera.close)
+camera.resolution = SCREEN_RESOLUTION
+camera.crop = CROP_WINDOW
 
-def centerPosition(itemSize, containerSize):
-    positionX = (containerSize[0] - itemSize[0]) / 2
-    positionY = (containerSize[1] - itemSize[1]) / 2
-    return positionX, positionY
 
-def addText(text):
-    label = FONT.render(text, 1, (255,255,255))
-    size = FONT.size(text)
-    labelPosition = centerPosition(size, SCREEN_RESOLUTION)
-    SCREEN.blit(label, labelPosition)
 
-def displayLastPhoto():
-    SCREEN.blit(lastPhoto, (0, 0))
-    addText("Print this photo ?")
+def displayText(text):
+    label = font.render(text, 1, FONT_COLOR)
+    size = font.size(text)
+    screen.blit(label, ((SCREEN_RESOLUTION[0] - size[0]) / 2, (SCREEN_RESOLUTION[1] - size[1]) / 2))
+
+def displayImage(img):
+    screen.blit(img, ((SCREEN_RESOLUTION[0] - img.get_width() ) / 2, (SCREEN_RESOLUTION[1] - img.get_height()) / 2))
+
+def showCamPreview():
+    stream = io.BytesIO()
+    camera.capture(stream, use_video_port=True, format='raw')
+    stream.seek(0)
+    stream.readinto(yuv)
+    stream.close()
+    yuv2rgb.convert(yuv, rgb, SCREEN_RESOLUTION[0],
+    SCREEN_RESOLUTION[1])
+    img = pygame.image.frombuffer(rgb[0: (SCREEN_RESOLUTION[0] * SCREEN_RESOLUTION[1] * 3)], SCREEN_RESOLUTION, 'RGB')
+    displayImage(img)
+
+def takePicture():
+	filepath = PHOTOS_DIR + "PHOTOBOOTH-" + time.strftime("%Y%m%d-%H%M%S") + ".jpg"
+	scaled = None
+	camera.resolution = CAM_RESOLUTION
+	camera.crop = CROP_WINDOW
+	try:
+		camera.capture(filepath, use_video_port=False, format='jpeg',
+		thumbnail=None)
+
+	finally:
+		# TODO add error handling/indicator (disk full, etc.)
+		camera.resolution = SCREEN_RESOLUTION
+		camera.crop = CROP_WINDOW
+
+	return filepath
+
+
+# TODO fetch last photo in the system directly instead of saving it to a variable
+lastPhoto = None
+def getLastPhoto():
+    global lastPhoto
+    return lastPhoto
+
+def showLastPhoto():
+    lastPhoto = getLastPhoto()
+    fullSize = pygame.image.load(lastPhoto)
+    img = pygame.transform.scale(fullSize, SCREEN_RESOLUTION)
+    displayImage(img)
+    displayText("Print this photo ?")
     pygame.display.update()
-
-# variables that will be updated during the loop
-currentMode = 'IDLE'
-photoButtonTime = 0
-lastPhoto = ''
-
-while 1:
-    SCREEN.fill((0, 0, 0))
-
-    # idle mode : waiting for user action
-    if currentMode == 'IDLE':
-        IMAGE = CAM.get_image()
-        SCREEN.blit(IMAGE, (0, 0))
-        pygame.display.update()
-        # listen to keyboard events
-        for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    sys.exit()
-                elif event.key == pygame.K_SPACE:
-                    photoButtonTime = time.clock()
-                    currentMode = 'PHOTO_COUNTDOWN'
-                elif event.key == pygame.K_RETURN:
-                    # TODO check if lastPhoto exists
-                    displayLastPhoto()
-                    photoDisplayTime = time.clock()
-                    currentMode = 'PHOTO_DISPLAY'
-
-    # countdown until photo is actually taken
-    elif currentMode == 'PHOTO_COUNTDOWN':
-        timeFromButton = int(math.ceil(time.clock() - photoButtonTime))
-        if timeFromButton <= PHOTO_DELAY:
-            # show counter
-            IMAGE = CAM.get_image()
-            SCREEN.blit(IMAGE, (0, 0))
-            addText(str(timeFromButton))
-            pygame.display.update()
-        else:
-            # take photo
-            lastPhoto = CAM.get_image()
-            # save the image as a file
-            filename = "PHOTOBOOTH-" + time.strftime("%Y%m%d-%H%M%S") + ".jpg"
-            pygame.image.save(lastPhoto, PHOTOS_DIR + filename)
-            # switch mode to wait for print
-            displayLastPhoto()
-            photoDisplayTime = time.clock()
-            currentMode = 'PHOTO_DISPLAY'
-
-    # show the last photo for sometime
-    elif currentMode == 'PHOTO_DISPLAY':
-        timeFromButton = int(math.ceil(time.clock() - photoDisplayTime))
+    pygame.event.clear()
+    buttonTime = time.clock()
+    while True:
+        timeFromButton = int(math.ceil(time.clock() - buttonTime))
         if timeFromButton > PHOTO_DISPLAY_DURATION:
-            currentMode = 'IDLE'
-        # listen to keyboard events
+            return
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
-                    currentMode = 'PRINT_CONFIRM'
+                    printLastPhoto()
+                    return
+                elif event.key == pygame.K_SPACE:
+                    return
 
-    # show print confirmation message
-    elif currentMode == 'PRINT_CONFIRM':
-        SCREEN.blit(lastPhoto, (0, 0))
-        addText("Printing ! Please wait...")
-        pygame.display.update()
-        time.sleep(PRINT_DELAY)
-        currentMode = 'IDLE'
+def printLastPhoto():
+    lastPhoto = getLastPhoto()
+    fullSize = pygame.image.load(lastPhoto)
+    img = pygame.transform.scale(fullSize, SCREEN_RESOLUTION)
+    displayImage(img)
+    displayText("Printing ! Please wait...")
+    pygame.display.update()
+    # TODO start printing
+    time.sleep(PRINT_DELAY)
+
+def startCountdown():
+    buttonTime = time.clock()
+    while True:
+        timeFromButton = int(math.ceil(time.clock() - buttonTime))
+        if timeFromButton <= PHOTO_DELAY:
+            # show counter
+            showCamPreview()
+            displayText(str(timeFromButton))
+            pygame.display.update()
+        else:
+            # save the image as a file
+            global lastPhoto
+            lastPhoto = takePicture()
+            showLastPhoto()
+            return
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    return
+
+
+# main loop
+while True:
+
+    # listen to keyboard events
+    for event in pygame.event.get():
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                sys.exit()
+            elif event.key == pygame.K_SPACE:
+                startCountdown()
+            elif event.key == pygame.K_RETURN:
+                showLastPhoto()
+
+    # show camera preview
+    showCamPreview()
+    pygame.display.update()
