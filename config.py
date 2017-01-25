@@ -1,15 +1,16 @@
-# photo and screen sizees
-#sizeData[xxx][0]
+# actual photo resolution
 CAM_RESOLUTION = 2592, 1944
-#sizeData[xxx][1]
-SCREEN_RESOLUTION = 320, 240
-#sizeData[xxx][2]
+
+# enter here your actual screen resolution
+# SCREEN_RESOLUTION = 1280, 1024
+SCREEN_RESOLUTION = 640, 512
+# SCREEN_RESOLUTION = 320, 256
+
+# in case you need to do some cropping on top of the cam cropping
 CROP_WINDOW = 0.0, 0.0, 1.0, 1.0
 
-# font file used for text display
+# configure the font used for text display
 FONT_FILE = "dizzyedge.otf"
-
-# color used in text displays
 FONT_COLOR = 255, 255, 255
 
 # time in secs before taking the picture

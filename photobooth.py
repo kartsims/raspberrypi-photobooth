@@ -12,16 +12,15 @@ import yuv2rgb
 from pprint import pprint
 
 # Buffers for viewfinder data
-# nbBytes = SCREEN_RESOLUTION[0] * SCREEN_RESOLUTION[1] * 3
 rgb = bytearray(SCREEN_RESOLUTION[0] * SCREEN_RESOLUTION[1] * 3)
-# yuv = bytearray(SCREEN_RESOLUTION[0] * SCREEN_RESOLUTION[1] * 3 / 2)
-yuv = bytearray(115200) # 320 * 240
+yuv = bytearray(SCREEN_RESOLUTION[0] * SCREEN_RESOLUTION[1] * 3 / 2)
 
 # init pygame and screen
 pygame.init()
-# pygame.mouse.set_visible(False)
-# screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
-screen = pygame.display.set_mode(SCREEN_RESOLUTION)
+pygame.mouse.set_visible(False)
+screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
+# disable full screen (might be useful when accessed through SSH)
+# screen = pygame.display.set_mode(SCREEN_RESOLUTION)
 
 # init font file
 font = pygame.font.Font("./fonts/" + FONT_FILE, 46)
