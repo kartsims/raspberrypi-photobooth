@@ -25,7 +25,7 @@ FONT_SIZE = 20
 PHOTO_DELAY = 3
 
 # duration in secs to display the new picture
-PHOTO_DISPLAY_DURATION = 7
+PHOTO_DISPLAY_DURATION = 5
 
 # duration in secs of the "printing" confirmation message
 PRINT_DELAY = 3
@@ -44,5 +44,6 @@ GPIO_PHOTO = 18
 GPIO_PRINT = 16
 
 # text translations
+TEXT_NO_LAST_PHOTO = "No photo found"
 TEXT_PRINT_CONFIRM = "Print this photo ?"
 TEXT_PRINT_WAIT = "Printing ! Please wait..."
