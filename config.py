@@ -1,13 +1,20 @@
+# camera type (only raspberry cam for now)
+CAMERA_TYPE = 'picamera'
+
+# resolution of pictures taken for preview
+CAMERA_PREVIEW_RESOLUTION = 640, 512
+
 # actual photo resolution
-CAM_RESOLUTION = 2592, 1944
+# CAMERA_RESOLUTION = 2592, 1944
+CAMERA_RESOLUTION = 2592, 1944
 
 # enter here your actual screen resolution
 # SCREEN_RESOLUTION = 1280, 1024
 SCREEN_RESOLUTION = 640, 512
 # SCREEN_RESOLUTION = 320, 256
 
-# in case you need to do some cropping on top of the cam cropping
-CROP_WINDOW = 0.0, 0.0, 1.0, 1.0
+# in case you need to do some cropping on the camera's pictures
+CAMERA_CROP = 0.0, 0.0, 1.0, 1.0
 
 # configure the font used for text display
 FONT_FILE = "dizzyedge.otf"
@@ -24,7 +31,7 @@ PHOTO_DISPLAY_DURATION = 7
 PRINT_DELAY = 3
 
 # directory where images are stored
-PHOTOS_DIR = "./photos/"
+PHOTOS_DIR = "/opt/photobooth/photos/"
 
 # keyboard inputs
 import pygame
