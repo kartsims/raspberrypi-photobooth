@@ -32,10 +32,11 @@ import pygame
 KEY_PHOTO = pygame.K_SPACE
 KEY_PRINT = pygame.K_RETURN
 
-# GPIO inputs
+# GPIO pins
 ENABLE_GPIO = True
 GPIO_PHOTO = 18
 GPIO_PRINT = 16
+GPIO_FLASH = 26
 
 # text translations
 TEXT_NO_LAST_PHOTO = "No photo found"

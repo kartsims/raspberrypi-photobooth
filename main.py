@@ -23,9 +23,8 @@ camera = PhotoboothCamera()
 display = PhotoboothDisplay()
 printer = PhotoboothPrinter()
 
-# init GPIO pins
+# init GPIO inputs
 if ENABLE_GPIO:
-    import RPi.GPIO as GPIO
     print "\nInitializing GPIO pins..."
     print "Board revision : %s" % GPIO.RPI_REVISION
     GPIO.setmode(GPIO.BCM)
@@ -33,6 +32,25 @@ if ENABLE_GPIO:
     print "Photo on pin %d" % GPIO_PHOTO
     GPIO.setup(GPIO_PRINT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     print "Print on pin %d" % GPIO_PRINT
+
+# setup flash GPIO
+if GPIO_FLASH:
+    GPIO.setup(GPIO_FLASH, GPIO.OUT)
+    print "Flash on pin %d" % GPIO_FLASH
+    # GPIO.output(GPIO_FLASH, GPIO.HIGH)
+    # time.sleep(1)
+    # GPIO.output(GPIO_FLASH, GPIO.LOW)
+    # time.sleep(1)
+    # GPIO.output(GPIO_FLASH, GPIO.HIGH)
+    # time.sleep(1)
+    # GPIO.cleanup()
+    # sys.exit()
+
+# whenever program is exited
+def doAtExit():
+    GPIO.cleanup()
+import atexit
+atexit.register(doAtExit)
 
 # display the last photo taken
 def showLastPhoto():
@@ -86,6 +104,8 @@ def startCountdown():
     print "Countdown for %d seconds..." % PHOTO_DELAY
     counter = PHOTO_DELAY
     pygame.time.set_timer(pygame.USEREVENT, 1000)
+    # flash ON
+    GPIO.output(GPIO_FLASH, GPIO.HIGH)
     while True:
         # listen for keyboard inputs and timer
         for event in pygame.event.get():
@@ -94,6 +114,9 @@ def startCountdown():
                     print "0!"
                     # save the image as a file
                     camera.takePicture()
+                    # flash OFF
+                    GPIO.output(GPIO_FLASH, GPIO.LOW)
+                    # show photo on screen
                     showLastPhoto()
                     return
                 sys.stdout.write(str(counter) + "...")
