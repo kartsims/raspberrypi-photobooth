@@ -1,25 +1,19 @@
 # camera type (only raspberry cam for now)
 CAMERA_TYPE = 'picamera'
 
-# resolution of pictures taken for preview
-CAMERA_PREVIEW_RESOLUTION = 640, 512
-
 # actual photo resolution
-# CAMERA_RESOLUTION = 2592, 1944
 CAMERA_RESOLUTION = 2592, 1944
 
-# enter here your actual screen resolution
-# SCREEN_RESOLUTION = 1280, 1024
-SCREEN_RESOLUTION = 640, 512
-# SCREEN_RESOLUTION = 320, 256
+# enter here your screen resolution (will be used for the camera preview images)
+SCREEN_RESOLUTION = 640, 480
 
 # in case you need to do some cropping on the camera's pictures
 CAMERA_CROP = 0.0, 0.0, 1.0, 1.0
 
 # configure the font used for text display
-FONT_FILE = "dizzyedge.otf"
+FONT_FILE = "square.ttf"
 FONT_COLOR = 255, 255, 255
-FONT_SIZE = 20
+FONT_SIZE = 40
 
 # time in secs before taking the picture
 PHOTO_DELAY = 3

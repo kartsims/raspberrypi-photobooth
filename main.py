@@ -10,6 +10,7 @@ sys.path.insert(1, os.path.join(sys.path[0], 'lib'))
 # import required libraries
 import math
 import pygame
+import RPi.GPIO as GPIO
 from config import *
 from PhotoboothCamera import *
 from PhotoboothDisplay import *

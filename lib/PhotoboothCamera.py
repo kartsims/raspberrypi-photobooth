@@ -17,9 +17,10 @@ class PhotoboothCamera:
         # init Pi camera
         if CAMERA_TYPE == 'picamera':
             self.cam = picamera.PiCamera()
-            atexit.register(self.cam.close)
-            self.cam.resolution = CAMERA_PREVIEW_RESOLUTION
+            self.cam.resolution = SCREEN_RESOLUTION
             self.cam.crop = CAMERA_CROP
+            # close camera when script is exited
+            atexit.register(self.cam.close)
 
         # if other types of camera should be supported, code would go here
 
@@ -48,7 +49,7 @@ class PhotoboothCamera:
 
     	finally:
     		# TODO add error handling/indicator (disk full, etc.)
-    		self.cam.resolution = CAMERA_PREVIEW_RESOLUTION
+    		self.cam.resolution = SCREEN_RESOLUTION
     		self.cam.crop = CAMERA_CROP
 
     	return filepath
