@@ -12,12 +12,12 @@ yuv = bytearray(SCREEN_RESOLUTION[0] * SCREEN_RESOLUTION[1] * 3 / 2)
 class PhotoboothCamera:
     def __init__(self):
         self.lastPhoto = None
-        # TODO fetch last photo from the file system if there was a previous photo
 
         # init Pi camera
         if CAMERA_TYPE == 'picamera':
             self.cam = picamera.PiCamera()
             self.cam.resolution = SCREEN_RESOLUTION
+            self.cam.rotation = CAMERA_ROTATION
             self.cam.crop = CAMERA_CROP
             # close camera when script is exited
             atexit.register(self.cam.close)

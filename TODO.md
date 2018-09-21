@@ -1,3 +1,2 @@
-- how to get a nice photo ? delay before capture ?
-- setup LED strip to test
-- solder LEDs
+- trouver éclairage
+- instructions d'utilisation (+ laisser votre email)

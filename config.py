@@ -4,6 +4,9 @@ CAMERA_TYPE = 'picamera'
 # actual photo resolution
 CAMERA_RESOLUTION = 2592, 1944
 
+# camera rotation (180 if image appears upside-down)
+CAMERA_ROTATION = 0
+
 # enter here your screen resolution (will be used for the camera preview images)
 SCREEN_RESOLUTION = 640, 480
 
@@ -19,10 +22,10 @@ FONT_SIZE = 40
 PHOTO_DELAY = 3
 
 # duration in secs to display the new picture
-PHOTO_DISPLAY_DURATION = 5
+PHOTO_DISPLAY_DURATION = 3
 
-# duration in secs of the "printing" confirmation message
-PRINT_DELAY = 3
+# duration in secs before photo browser vanishes
+PHOTO_BROWSER_TIMEOUT = 5
 
 # directory where images are stored
 PHOTOS_DIR = "/opt/photobooth/photos/"
@@ -34,11 +37,9 @@ KEY_PRINT = pygame.K_RETURN
 
 # GPIO pins
 ENABLE_GPIO = True
-GPIO_PHOTO = 18
-GPIO_PRINT = 16
-GPIO_FLASH = 26
+GPIO_PHOTO = 21
+GPIO_PRINT = 20
+GPIO_FLASH = 14
 
 # text translations
 TEXT_NO_LAST_PHOTO = "No photo found"
-TEXT_PRINT_CONFIRM = "Print this photo ?"
-TEXT_PRINT_WAIT = "Printing ! Please wait..."

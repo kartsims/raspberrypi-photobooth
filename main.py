@@ -1,5 +1,6 @@
 import sys
 import os
+import glob
 import time
 
 print "\n--- %s\n" % time.strftime("%d/%m/%Y %H:%M:%S")
@@ -37,12 +38,15 @@ if ENABLE_GPIO:
 if GPIO_FLASH:
     GPIO.setup(GPIO_FLASH, GPIO.OUT)
     print "Flash on pin %d" % GPIO_FLASH
+    # print 'HIGH'
     # GPIO.output(GPIO_FLASH, GPIO.HIGH)
-    # time.sleep(1)
+    # time.sleep(3)
+    # print 'LOW'
     # GPIO.output(GPIO_FLASH, GPIO.LOW)
-    # time.sleep(1)
+    # time.sleep(3)
+    # print 'HIGH'
     # GPIO.output(GPIO_FLASH, GPIO.HIGH)
-    # time.sleep(1)
+    # time.sleep(3)
     # GPIO.cleanup()
     # sys.exit()
 
@@ -60,7 +64,6 @@ def showLastPhoto():
         time.sleep(1)
         return
     display.imageScaled(camera.lastPhoto)
-    display.text(TEXT_PRINT_CONFIRM)
     display.update()
     pygame.event.clear()
     counter = PHOTO_DISPLAY_DURATION
@@ -76,7 +79,7 @@ def showLastPhoto():
                 if event.key == KEY_PHOTO:
                     return
                 elif event.key == KEY_PRINT:
-                    printLastPhoto()
+                    browseToPhoto(loadPhotosList(), 0)
                     return
         # listen for GPIO inputs
         if ENABLE_GPIO:
@@ -84,19 +87,8 @@ def showLastPhoto():
                 time.sleep(.3)
                 return
             if GPIO.input(GPIO_PRINT) == False:
-                printLastPhoto()
+                browseToPhoto(loadPhotosList(), 0)
                 return
-
-
-# print a photo
-def printLastPhoto():
-    if not camera.lastPhoto:
-        return
-    display.imageScaled(camera.lastPhoto)
-    display.text(TEXT_PRINT_WAIT)
-    display.update()
-    printer.photo(camera.lastPhoto)
-    time.sleep(PRINT_DELAY)
 
 
 # the "photo" button has been clicked !
@@ -138,8 +130,43 @@ def startCountdown():
             display.text(str(counter))
         display.update()
 
+# photos browser
+def loadPhotosList():
+    photos = glob.glob(PHOTOS_DIR + "*.jpg")
+    photos.sort(key=os.path.getmtime, reverse=True)
+    photos = filter(lambda x:os.path.getsize(x) > 2000L, photos)
+    return photos
 
-
+# show a specific photo
+def browseToPhoto(photos, index):
+    if len(photos) <= index:
+        return
+    display.imageScaled(photos[index])
+    display.update()
+    pygame.event.clear()
+    counter = PHOTO_BROWSER_TIMEOUT
+    pygame.time.set_timer(pygame.USEREVENT, 1000)
+    while True:
+        # listen for keyboard inputs and timer
+        for event in pygame.event.get():
+            if event.type == pygame.USEREVENT:
+                if counter == 0:
+                    return
+                counter -= 1
+            if event.type == pygame.KEYDOWN:
+                if event.key == KEY_PHOTO:
+                    return
+                elif event.key == KEY_PRINT:
+                    browseToPhoto(photos, index + 1)
+                    return
+        # listen for GPIO inputs
+        if ENABLE_GPIO:
+            if GPIO.input(GPIO_PHOTO) == False:
+                time.sleep(.3)
+                return
+            if GPIO.input(GPIO_PRINT) == False:
+                browseToPhoto(photos, index + 1)
+                return
 
 # main loop
 while True:
@@ -153,7 +180,7 @@ while True:
             elif event.key == KEY_PHOTO:
                 startCountdown()
             elif event.key == KEY_PRINT:
-                showLastPhoto()
+                browseToPhoto(loadPhotosList(), 0)
 
     # listen for GPIO inputs
     if ENABLE_GPIO:
@@ -161,7 +188,7 @@ while True:
             time.sleep(.3)
             startCountdown()
         if GPIO.input(GPIO_PRINT) == False:
-            showLastPhoto()
+            browseToPhoto(loadPhotosList(), 0)
 
     # show camera preview
     imgBuffer = camera.preview()
